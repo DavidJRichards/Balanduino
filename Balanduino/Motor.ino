@@ -73,8 +73,9 @@ void updatePID(float restAngle, float offset, float turning, float dt) {
   float PIDLeft = PIDValue + turning;
   float PIDRight = PIDValue - turning;
 
-  PIDLeft *= cfg.leftMotorScaler; // Compensate for difference in some of the motors
-  PIDRight *= cfg.rightMotorScaler;
+  //PIDLeft *= cfg.leftMotorScaler; // Compensate for difference in some of the motors
+  //PIDRight *= cfg.rightMotorScaler;
+  PIDLeft = PIDRight;
 
   /* Set PWM Values */
   if (PIDLeft >= 0)
@@ -141,47 +142,30 @@ void stopAndReset() {
   lastRestAngle = cfg.targetAngle;
 }
 
-/* Interrupt routine and encoder read functions */
-// It uses gray code to detect if any pulses are missed. See: https://www.circuitsathome.com/mcu/reading-rotary-encoder-on-arduino and http://en.wikipedia.org/wiki/Rotary_encoder#Incremental_rotary_encoder.
-
-#if defined(PIN_CHANGE_INTERRUPT_VECTOR_LEFT) && defined(PIN_CHANGE_INTERRUPT_VECTOR_RIGHT)
-static const int8_t enc_states[16] = { 0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0 }; // Encoder lookup table if it interrupts on every edge
-
-ISR(PIN_CHANGE_INTERRUPT_VECTOR_LEFT) {
-  leftEncoder();
-#if BALANDUINO_REVISION >= 13
-}
-ISR(PIN_CHANGE_INTERRUPT_VECTOR_RIGHT) {
-#endif
-  rightEncoder();
-}
-#elif BALANDUINO_REVISION < 13
-#warning "Only interrupting on every second edge!"
-static const int8_t enc_states[16] = { 0, 0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0 }; // Encoder lookup table if it only interrupts on every second edge - this only works on revision 1.2 and older
-#endif
-
-void leftEncoder() {
-  static uint8_t old_AB = 0;
-  old_AB <<= 2; // Remember previous state
-  old_AB |= (leftEncoder2::IsSet() >> (leftEncoder2::Number - 1)) | (leftEncoder1::IsSet() >> leftEncoder1::Number);
-  leftCounter -= enc_states[ old_AB & 0x0F ];
-}
-
-void rightEncoder() {
-  static uint8_t old_AB = 0;
-  old_AB <<= 2; // Remember previous state
-  old_AB |= (rightEncoder2::IsSet() >> (rightEncoder2::Number - 1)) | (rightEncoder1::IsSet() >> rightEncoder1::Number);
-  rightCounter += enc_states[ old_AB & 0x0F ];
-}
 
 int32_t readLeftEncoder() { // The encoders decrease when motors are traveling forward and increase when traveling backward
-  return leftCounter;
+  return encoderL->getPosition();
 }
 
 int32_t readRightEncoder() {
-  return rightCounter;
+  return encoderR->getPosition();
 }
 
 int32_t getWheelsPosition() {
-  return leftCounter + rightCounter;
+  return encoderL->getPosition() + encoderR->getPosition();
+}
+
+int32_t getWheelsVelocity(void)
+{
+  return (encoderL->getRPM() + encoderR->getRPM() );
+}
+
+int32_t getWheelLVelocity(void)
+{
+  return encoderL->getRPM();
+}
+
+int32_t getWheelRVelocity(void)
+{
+  return encoderR->getRPM();
 }

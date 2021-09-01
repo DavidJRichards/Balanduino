@@ -27,17 +27,18 @@
 /* Use this to enable and disable the different options */
 #define ENABLE_TOOLS
 #define ENABLE_SPP
-#define ENABLE_PS3
-#define ENABLE_PS4
-#define ENABLE_WII
-#define ENABLE_XBOX
+//#define ENABLE_PS3
+//#define ENABLE_PS4
+//#define ENABLE_WII
+//#define ENABLE_XBOX
 #define ENABLE_ADK
-#define ENABLE_SPEKTRUM
+//#define ENABLE_SPEKTRUM
 
 #include "Balanduino.h"
 #include <Arduino.h> // Standard Arduino header
 #include <Wire.h> // Official Arduino Wire library
 #include <SPI.h> // Official Arduino SPI library
+#include <RotaryEncoder.h> // More information on: http://www.mathertel.de/Arduino
 
 #ifdef ENABLE_ADK
 #include <adk.h>
@@ -62,6 +63,10 @@
 #ifdef ENABLE_WII
 #include <Wii.h>
 #endif
+
+
+RotaryEncoder *encoderL = nullptr;
+RotaryEncoder *encoderR = nullptr;
 
 // Create the Kalman library instance
 Kalman kalman; // See https://github.com/TKJElectronics/KalmanFilter for source code
@@ -117,6 +122,13 @@ WII Wii(&Btd); // The Wii library can communicate with Wiimotes and the Nunchuck
 // This can also be done using the Android or via the serial port
 #endif
 
+void checkPosition()
+{
+  encoderL->tick(); // just call tick() to check the state.
+  encoderR->tick(); // just call tick() to check the state.
+}
+
+
 void setup() {
   /* Setup buzzer pin */
   buzzer::SetDirWrite();
@@ -139,39 +151,24 @@ void setup() {
   Serial.begin(115200);
 
   /* Setup encoders */
-  leftEncoder1::SetDirRead();
-  leftEncoder2::SetDirRead();
-  rightEncoder1::SetDirRead();
-  rightEncoder2::SetDirRead();
-  leftEncoder1::Set(); // Enable pull-ups
-  leftEncoder2::Set();
-  rightEncoder1::Set();
-  rightEncoder2::Set();
+ // setup the rotary encoder functionality
 
-#if BALANDUINO_REVISION < 13 // On the new revisions pin change interrupt is used for all pins
-  attachInterrupt(digitalPinToInterrupt(leftEncoder1Pin), leftEncoder, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(rightEncoder1Pin), rightEncoder, CHANGE);
-#endif
+  // use FOUR3 mode when PIN_IN1, PIN_IN2 signals are always HIGH in latch position.
+  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
 
-#if defined(PIN_CHANGE_INTERRUPT_VECTOR_LEFT) && defined(PIN_CHANGE_INTERRUPT_VECTOR_RIGHT)
-  /* Enable encoder pins interrupt sources */
-  #if BALANDUINO_REVISION >= 13
-    *digitalPinToPCMSK(leftEncoder1Pin) |= (1 << digitalPinToPCMSKbit(leftEncoder1Pin));
-    *digitalPinToPCMSK(rightEncoder1Pin) |= (1 << digitalPinToPCMSKbit(rightEncoder1Pin));
-  #endif
-  *digitalPinToPCMSK(leftEncoder2Pin) |= (1 << digitalPinToPCMSKbit(leftEncoder2Pin));
-  *digitalPinToPCMSK(rightEncoder2Pin) |= (1 << digitalPinToPCMSKbit(rightEncoder2Pin));
+  // use FOUR0 mode when PIN_IN1, PIN_IN2 signals are always LOW in latch position.
+  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR0);
 
-  /* Enable pin change interrupts */
-  #if BALANDUINO_REVISION >= 13
-    *digitalPinToPCICR(leftEncoder1Pin) |= (1 << digitalPinToPCICRbit(leftEncoder1Pin));
-    *digitalPinToPCICR(rightEncoder1Pin) |= (1 << digitalPinToPCICRbit(rightEncoder1Pin));
-  #endif
-  *digitalPinToPCICR(leftEncoder2Pin) |= (1 << digitalPinToPCICRbit(leftEncoder2Pin));
-  *digitalPinToPCICR(rightEncoder2Pin) |= (1 << digitalPinToPCICRbit(rightEncoder2Pin));
-#elif BALANDUINO_REVISION >= 13
-  #error "Please define "PIN_CHANGE_INTERRUPT_VECTOR_LEFT" and "PIN_CHANGE_INTERRUPT_VECTOR_RIGHT" in Balanduino.h"
-#endif
+  // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
+  encoderL = new RotaryEncoder(leftEncoder1Pin, leftEncoder2Pin, RotaryEncoder::LatchMode::TWO03);
+  encoderR = new RotaryEncoder(rightEncoder1Pin, rightEncoder2Pin, RotaryEncoder::LatchMode::TWO03);
+
+  // register interrupt routine
+  attachInterrupt(digitalPinToInterrupt(leftEncoder1Pin), checkPosition, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(leftEncoder2Pin), checkPosition, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(rightEncoder1Pin), checkPosition, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(rightEncoder2Pin), checkPosition, CHANGE);
+
 
   /* Set the motordriver diagnostic pins to inputs */
   leftDiag::SetDirRead();
@@ -290,13 +287,17 @@ void setup() {
 }
 
 void loop() {
+  static int posL = 0;
+  static int posR = 0;
+
+#if 0  
   if (!leftDiag::IsSet() || !rightDiag::IsSet()) { // Motor driver will pull these low on error
     buzzer::Set();
     stopMotor(left);
     stopMotor(right);
     while (1);
   }
-
+#endif
 #if defined(ENABLE_WII) || defined(ENABLE_PS4) // We have to read much more often from the Wiimote and PS4 controller to decrease latency
   bool readUSB = false;
 #ifdef ENABLE_WII
@@ -357,28 +358,61 @@ void loop() {
   pidTimer = timer;
 
   /* Update encoders */
+  encoderL->tick(); // just call tick() to check the state.
+  encoderR->tick(); // just call tick() to check the state.
   timer = millis();
   if (timer - encoderTimer >= 100) { // Update encoder values every 100ms
     encoderTimer = timer;
     int32_t wheelPosition = getWheelsPosition();
-    wheelVelocity = wheelPosition - lastWheelPosition;
-    lastWheelPosition = wheelPosition;
+//    wheelVelocity = wheelPosition - lastWheelPosition;
+//    lastWheelPosition = wheelPosition;
+    wheelVelocity = getWheelsVelocity();
     //Serial.print(wheelPosition);Serial.print('\t');Serial.print(targetPosition);Serial.print('\t');Serial.println(wheelVelocity);
     if (abs(wheelVelocity) <= 40 && !stopped) { // Set new targetPosition if braking
       targetPosition = wheelPosition;
       stopped = true;
     }
+    
+#if 0
+  int newPosL = encoderL->getPosition();
+  int newPosR = encoderR->getPosition();
+  if (posL != newPosL) {
+    Serial.print("posL:");
+    Serial.print(newPosL);
+    Serial.print(" dir:");
+    Serial.println((int)(encoderL->getDirection()));
+    posL = newPosL;
+  } // if
+  if (posR != newPosR) {
+    Serial.print("posR:");
+    Serial.print(newPosR);
+    Serial.print(" dir:");
+    Serial.println((int)(encoderR->getDirection()));
+    posR = newPosR;
+  } // if
+#endif
 
+
+#if 0
     batteryCounter++;
     if (batteryCounter >= 10) { // Measure battery every 1s
       batteryCounter = 0;
       batteryVoltage = (float)analogRead(VBAT) / 63.050847458f; // VBAT is connected to analog input 5 which is not broken out. This is then connected to a 47k-12k voltage divider - 1023.0/(3.3/(12.0/(12.0+47.0))) = 63.050847458
+//      Serial.println(batteryVoltage);
       if (batteryVoltage < 10.2 && batteryVoltage > 5) // Equal to 3.4V per cell - don't turn on if it's below 5V, this means that no battery is connected
         buzzer::Set();
       else
         buzzer::Clear();
     }
+#endif
   }
+  
+#if 1
+if(layingDown)
+LED::Clear();
+else
+LED::Set();
+#endif
 
   /* Read the Bluetooth dongle and send PID and IMU values */
 #if defined(ENABLE_TOOLS) || defined(ENABLE_SPEKTRUM)
@@ -394,7 +428,7 @@ void loop() {
 #ifdef ENABLE_BTD
   if (Btd.isReady()) {
     timer = millis();
-    if ((Btd.watingForConnection && timer - blinkTimer > 1000) || (!Btd.watingForConnection && timer - blinkTimer > 100)) {
+    if ((Btd.waitingForConnection && timer - blinkTimer > 1000) || (!Btd.waitingForConnection && timer - blinkTimer > 100)) {
       blinkTimer = timer;
       LED::Toggle(); // Used to blink the built in LED, starts blinking faster upon an incoming Bluetooth request
     }

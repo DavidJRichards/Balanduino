@@ -20,9 +20,12 @@
 void checkSerialData() {
   if (Serial.available()) {
     int input = Serial.read();
+    
 #ifdef ENABLE_TOOLS
     if (input == 'm')
+    {
       printMenu();
+    }
     else {
 #endif
 #ifdef ENABLE_SPEKTRUM
@@ -188,12 +191,17 @@ void calibrateMotor() {
 
 void testMotorSpeed(float *leftSpeed, float *rightSpeed, float leftScaler, float rightScaler) {
   int32_t lastLeftPosition = readLeftEncoder(), lastRightPosition = readRightEncoder();
+  uint32_t timer;
 
   Serial.println(F("Velocity (L), Velocity (R), Speed value (L), Speed value (R)"));
   while (Serial.read() == -1) {
+
+    encoderL->tick(); // just call tick() to check the state.
+    encoderR->tick(); // just call tick() to check the state.
+
     moveMotor(left, forward, (*leftSpeed)*leftScaler);
     moveMotor(right, forward, (*rightSpeed)*rightScaler);
-
+#if 0
     int32_t leftPosition = readLeftEncoder();
     int32_t leftVelocity = leftPosition - lastLeftPosition;
     lastLeftPosition = leftPosition;
@@ -201,6 +209,13 @@ void testMotorSpeed(float *leftSpeed, float *rightSpeed, float leftScaler, float
     int32_t rightPosition = readRightEncoder();
     int32_t rightVelocity = rightPosition - lastRightPosition;
     lastRightPosition = rightPosition;
+#else
+    int32_t rightVelocity = getWheelRVelocity();
+    int32_t leftVelocity = getWheelLVelocity();
+#endif
+    timer = millis();
+    if (timer - encoderTimer >= 100) { // Update encoder values every 100ms
+    encoderTimer = timer;
 
     Serial.print(leftVelocity);
     Serial.print(F(","));
@@ -209,7 +224,7 @@ void testMotorSpeed(float *leftSpeed, float *rightSpeed, float leftScaler, float
     Serial.print(*leftSpeed);
     Serial.print(F(","));
     Serial.println(*rightSpeed);
-
+    }
     if (abs(leftVelocity) < 200)
       (*leftSpeed) += 0.1f;
     else if (abs(leftVelocity) > 203)
@@ -220,7 +235,7 @@ void testMotorSpeed(float *leftSpeed, float *rightSpeed, float leftScaler, float
     else if (abs(rightVelocity) > 203)
       (*rightSpeed) -= 0.1f;
 
-    delay(100);
+    delay(10);
   }
   for (float i = *leftSpeed; i > 0; i--) { // Stop motors gently
     moveMotor(left, forward, i);
@@ -303,7 +318,7 @@ void printValues() {
     out->print(F(","));
     out->println(pitch);
   } else if (sendStatusReport && millis() - reportTimer > 500) { // Send data every 500ms
-    reportTimer = millis();
+    reportTimer = millis(); 
 
     out->print(F("R,"));
     out->print(batteryVoltage);

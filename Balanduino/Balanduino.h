@@ -18,6 +18,10 @@
 #ifndef _balanduino_h_
 #define _balanduino_h_
 
+
+#define Revision 1.3
+#define BALANDUINO_REVISION 13
+
 #if ARDUINO < 156 // Make sure that at least Arduino IDE version 1.5.6 is used
   #error "Please update the Arduino IDE to version 1.5.6 or newer at the following website: http://arduino.cc/en/Main/Software"
 #endif
@@ -30,7 +34,8 @@ static const uint8_t eepromVersion = 3; // EEPROM version - used to restore the 
 
 static bool sendIMUValues, sendSettings, sendInfo, sendStatusReport, sendPIDValues, sendPairConfirmation, sendKalmanValues; // Used to send out different values via Bluetooth
 
-static const uint16_t PWM_FREQUENCY = 20000; // The motor driver can handle a PWM frequency up to 20kHz
+//static const uint16_t PWM_FREQUENCY = 20000; // The motor driver can handle a PWM frequency up to 20kHz
+static const uint16_t PWM_FREQUENCY = 1000; // The motor driver can handle a PWM frequency up to 20kHz
 static const uint16_t PWMVALUE = F_CPU / PWM_FREQUENCY / 2; // The frequency is given by F_CPU/(2*N*ICR) - where N is the prescaler, prescaling is used so the frequency is given by F_CPU/(2*ICR) - ICR = F_CPU/PWM_FREQUENCY/2
 
 /* Used to make commands more readable */
@@ -55,65 +60,33 @@ enum Command {
 // Also see the Arduino port manipulation guide: http://www.arduino.cc/en/Reference/PortManipulation
 
 /* Left motor */
-#define leftA P23
-#define leftB P24
-#define leftPWM P18
+#define leftB P23
+#define leftA P18
+#define leftPWM P11 //oc1a
 
 /* Right motor */
-#if BALANDUINO_REVISION < 13
-  #define rightA P25
-  #define rightB P26
-#else
-  #define rightA P15
-  #define rightB P16
-#endif
-#define rightPWM P17
+#define rightB P15
+#define rightA P16
+#define rightPWM P12 // oc1b
 
 /* Pins connected to the motor drivers diagnostic pins */
 #define leftDiag P21
 #define rightDiag P22
 
 /* Encoders */
-#if BALANDUINO_REVISION < 13
-  #define leftEncoder1Pin 15 // Used for attachInterrupt
-  #define leftEncoder2Pin 30 // Used for pin change interrupt
-  #define rightEncoder1Pin 16 // Used for attachInterrupt
-  #define rightEncoder2Pin 31 // Used for pin change interrupt
-#else
-  #define leftEncoder1Pin 25 // Used for pin change interrupt
-  #define leftEncoder2Pin 26 // Used for pin change interrupt
-  #define rightEncoder1Pin 30 // Used for pin change interrupt
-  #define rightEncoder2Pin 31 // Used for pin change interrupt
-#endif
+#define leftEncoder2Pin A8 //25 // Used for pin change interrupt
+#define leftEncoder1Pin A9 //26 // Used for pin change interrupt
 
-#define MAKE_PIN(pin) _MAKE_PIN(pin) // Puts a P in front of the pin number, e.g. 1 becomes P1
-#define _MAKE_PIN(pin) P ## pin
-
-#define leftEncoder1 MAKE_PIN(leftEncoder1Pin)
-#define leftEncoder2 MAKE_PIN(leftEncoder2Pin)
-
-#define rightEncoder1 MAKE_PIN(rightEncoder1Pin)
-#define rightEncoder2 MAKE_PIN(rightEncoder2Pin)
-
-// You should change these to match your pins
-#if BALANDUINO_REVISION < 13
-  #define PIN_CHANGE_INTERRUPT_VECTOR_LEFT PCINT0_vect
-  #define PIN_CHANGE_INTERRUPT_VECTOR_RIGHT PCINT0_vect
-#else
-  #define PIN_CHANGE_INTERRUPT_VECTOR_LEFT PCINT1_vect
-  #define PIN_CHANGE_INTERRUPT_VECTOR_RIGHT PCINT0_vect
-#endif
+#define rightEncoder2Pin A10 //30 // Used for pin change interrupt
+#define rightEncoder1Pin A11 //31 // Used for pin change interrupt
 
 // Buzzer used for feedback, it can be disconnected using the jumper
-#if BALANDUINO_REVISION < 13
-  #define buzzer P5
-#else
-  #define buzzer P11 /* A4 */
-#endif
+#define buzzer P48 //P11 /* A4 */
 
 #define spektrumBindPin P0 // Pin used to bind with the Spektrum satellite receiver - you can use any pin while binding, but you should connect it to RX0 afterwards
 
-#define LED MAKE_PIN(LED_BUILTIN) // LED_BUILTIN is defined in pins_arduino.h in the hardware add-on
+//#define LED MAKE_PIN(LED_BUILTIN) // LED_BUILTIN is defined in pins_arduino.h in the hardware add-on
+#define LED P13
 
 #define VBAT A5 // Not broken out - used for battery voltage measurement
 
