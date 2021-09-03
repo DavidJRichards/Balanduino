@@ -29,7 +29,7 @@
 #include <stdint.h> // Needed for uint8_t, uint16_t etc.
 
 /* Firmware Version Information */
-static const char *version = "1.2.0";
+static const char *version = "1.3.0";
 static const uint8_t eepromVersion = 3; // EEPROM version - used to restore the EEPROM values if the configuration struct have changed
 
 static bool sendIMUValues, sendSettings, sendInfo, sendStatusReport, sendPIDValues, sendPairConfirmation, sendKalmanValues; // Used to send out different values via Bluetooth
@@ -65,8 +65,8 @@ enum Command {
 #define leftPWM P11 //oc1a
 
 /* Right motor */
-#define rightB P15
-#define rightA P16
+#define rightA P15
+#define rightB P16
 #define rightPWM P12 // oc1b
 
 /* Pins connected to the motor drivers diagnostic pins */

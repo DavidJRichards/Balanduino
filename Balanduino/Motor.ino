@@ -73,10 +73,9 @@ void updatePID(float restAngle, float offset, float turning, float dt) {
   float PIDLeft = PIDValue + turning;
   float PIDRight = PIDValue - turning;
 
-  //PIDLeft *= cfg.leftMotorScaler; // Compensate for difference in some of the motors
-  //PIDRight *= cfg.rightMotorScaler;
-  PIDLeft = PIDRight;
-
+  PIDLeft *= cfg.leftMotorScaler; // Compensate for difference in some of the motors
+  PIDRight *= cfg.rightMotorScaler;
+  
   /* Set PWM Values */
   if (PIDLeft >= 0)
     moveMotor(left, forward, PIDLeft);
